@@ -1,0 +1,37 @@
+Define Important Variables
+
+```{r}
+input_counts = "C:\\Users\\Roman\\Documents\\Work\\Depression_and_Immunology\\Data\\genecounts.variancestabilized.csv"
+input_annot = "C:\\Users\\Roman\\Documents\\Work\\Depression_and_Immunology\\Scripts\\Data\\meta_data_with_paths_all_patients_final.csv"
+```
+Import file list that contains the location of all the files
+Also import a file with the samples and the sample names
+```{r}
+# let's get the file
+
+# Read a txt file and convert gene names (first column) into indeces
+my_data <- read.csv(input_counts, header = TRUE, row.names = 1, check.names = FALSE)
+
+# Read a text file and create indeces
+annot <- read.csv(input_annot, header = TRUE, row.names = 1, check.names = FALSE )
+
+# Transpose data table
+gene_df <- t(my_data)
+
+# Convert transposed table into a data frame
+gene_df <- data.frame(gene_df)
+
+head(gene_df)
+
+# Remove all non-expressed and 0-variance genes from data frame
+#express_df <- gene_df[,sapply(gene_df,function(x){!all(x==0)})]
+#express_final_df <- express_df[vapply(express_df, function(x) length(unique(x)) > 1, logical(1L))]
+
+
+```
+
+
+```{r}
+boxplot(gene_df[,2], xlab = colnames(gene_df)[2],
+   ylab = "Gene Expression", main = "Gene Box Plot")
+```

@@ -1,0 +1,188 @@
+
+```{r}
+#!/usr/bin/Rscript
+# ---
+# title: "Shakeel's PCA script"
+# author: Shakeel Jessa
+# date: 18/Jun/2018
+# output: pdf_document
+# ---
+
+# Import packages
+library('ggplot2')
+library(dplyr)
+library(gplots)
+library(getopt)
+
+spec = matrix(c(
+  'gene', 'g', 1, "character",
+  'annotation', 'a', 1, "character",
+  'PCx','x', 2, "double",
+  'PCy','y',2,"double",
+  'output_dir', 'o', 1, 'character',
+  'ouput_name', 'f', 1, 'character'
+), byrow=TRUE, ncol=4)
+opt = getopt(spec)
+cat(opt$gene)
+
+# Collect file names from user
+#input_counts <- readline(prompt = "What is the name of your gene counts file?: ")
+#input_annot <- readline(prompt = "What is the name of your annotation file?: ")
+output_name = "combined_pca_plots"
+input_counts = "C:/Users/Roman/Documents/Work/Depression_and_Immunology/Spring_Research/Data/combined_dataset_unfiltered_combat_corrected/combined_dataset_unfiltered_combat_corrected_gene_counts.csv"
+input_annot = "C:/Users/Roman/Documents/Work/Depression_and_Immunology/Spring_Research/Data/combined_dataset_unfiltered_combat_corrected/combined_dataset_unfiltered_combat_corrected_metadata_temp.csv"
+output_dir <- "C:/Users/Roman/Documents/Work/Depression_and_Immunology/Spring_Research/Data/combined_dataset_unfiltered_combat_corrected"
+
+```
+
+```{r}
+
+if ( is.null(opt$PCx ) ) { opt$PCx = 1}
+if ( is.null(opt$PCy ) ) { opt$PCy = 2}
+xaxis <- opt$PCx
+yaxis<- opt$PCy
+
+
+
+# Read a txt file and convert gene names (first column) into indeces
+my_data <- read.csv(input_counts, header = TRUE, row.names = 1, check.names = FALSE)
+
+# Read a text file and create indeces
+annot <- read.csv(input_annot, header = TRUE, row.names = 1, check.names = FALSE )
+annot$batch[annot$batch == 1] <- "1 "
+annot$batch[annot$batch == 2] <- "2 "
+annot$batch[annot$batch == 3] <- "3 "
+annot$batch[annot$batch == 4] <- "4 "
+
+annot$scid_diagnosis[annot$scid_diagnosis == 0] <- "Healthy"
+annot$scid_diagnosis[annot$scid_diagnosis == 1] <- "MDD "
+annot$scid_diagnosis[annot$scid_diagnosis == 2] <- "BD II"
+annot$scid_diagnosis[annot$scid_diagnosis == 3] <- "BD I"
+
+# Transpose data table
+gene_df <- t(my_data)
+
+# Convert transposed table into a data frame
+gene_df <- data.frame(gene_df)
+
+# Remove all non-expressed and 0-variance genes from data frame
+express_df <- gene_df[,sapply(gene_df,function(x){!all(x==0)})]
+express_final_df <- express_df[vapply(express_df, function(x) length(unique(x)) > 1, logical(1L))]
+
+# Scale data frame
+scale_df <- scale(express_final_df)
+
+# Perform PCA analysis on scaled data and store
+pca <- prcomp(scale_df)
+
+# Plot PCx vs PCy and convert pca data into a data frame
+pca_df <- data.frame(pca$x)
+
+# Count number of columns in pca_df and store it
+pre_ncol <- ncol(pca_df)
+
+# Add annotations to pca dataframe
+pca_df <- data.frame(pca$x, annot)
+
+# Count number of columns in pca_df after adding annot and store
+post_ncol <- ncol(pca_df)
+
+# Generate range of values to iterate through for plot labeling
+label_ncol <- pre_ncol + 1
+
+# Generate Importance of Components and store it
+components <- summary(pca)
+
+# Pull values of the two highest Proportion of Variance's
+Prop_ofPCx <- components$importance[2, xaxis] * 100
+Prop_ofPCy <- components$importance[2, yaxis] * 100
+
+# Convert Variance values into strings
+Prop_ofPCx <- toString(Prop_ofPCx)
+Prop_ofPCy <- toString(Prop_ofPCy)
+
+# Create x and y axis labels with variance %
+x_label <- paste("PC",xaxis,",",' Var %: ', Prop_ofPCx)
+y_label <- paste("PC",yaxis,",", ' Var %: ', Prop_ofPCy)
+
+# Capture the rotation matrix in a data frame
+rotation_data <- data.frame(pca$rotation, variable=row.names(pca$rotation))
+
+PCxstring <- paste("PC",xaxis)
+PCystring <- paste("PC", yaxis)
+
+# Sort PCx/PCy columns from G->L and store in new data frames
+sorted_PCx <- rotation_data[order(rotation_data[,xaxis], decreasing=TRUE),, drop=FALSE]
+sorted_PCy <- rotation_data[order(rotation_data[,yaxis], decreasing=TRUE),, drop=FALSE]
+
+# Store gene names and values for top 10 genes
+PCx_names <- rownames(sorted_PCx[1:10,])
+PCx_values <- sorted_PCx[1:10,xaxis]
+PCx_10list <- paste(PCx_names, PCx_values, sep=': ')
+PCy_names <- rownames(sorted_PCy[1:10,])
+PCy_values <- sorted_PCy[1:10,yaxis]
+PCy_10list <- paste(PCy_names, PCy_values, sep=': ')
+
+
+sorted_PCxTen <- sorted_PCx[1:10,]
+sorted_PCyTen <- sorted_PCy[1:10,]
+pc_vector<- c(xaxis, yaxis)
+
+PCx_Ten <- sorted_PCxTen[pc_vector]
+PCy_Ten <- sorted_PCyTen[pc_vector]
+topTens <- rbind(PCx_Ten,PCy_Ten) 
+newdata <- pca$x
+
+
+
+#Output PCA plot(s) to pdf
+#pdf("pca_plots.pdf")
+pdf(file=paste( output_dir,'/', output_name, "_DOUBLE_TEST.pdf", sep=""))
+#for (n in c(label_ncol:post_ncol)) 
+
+pca_df[post_ncol]
+
+# WE NEED TO CHANGE THIS SO IT DOESN'T USE NUMERICAL VALUES FOR PCA_DF[,POST_NCOL]
+{print(ggplot(pca_df, aes(x=pca_df[,xaxis], y=pca_df[,yaxis], color= pca_df[, label_ncol], shape = factor(pca_df[,post_ncol]))) # I added factor here
+                                          + geom_point(size = 2) + labs(x =x_label, y = y_label, color=colnames(pca_df[label_ncol]),shape=colnames(pca_df[post_ncol]),
+                                                                        caption= paste("PCA is a dimensionality reduction technique that emphasizes the variation in the data
+                                                                                        and allows us to see patterns in the data.X axis represents the first principal 
+                                                                                        component and its contributor rate. Y axis represents the second component and
+                                                                                        its contributor rate. Points represent each sample.Sample colors and shapes are
+                                                                                        according to a group the sample belongs to.")))}
+
+
+percent <- 100*pca$sdev^2/sum(pca$sdev^2)
+percent <- percent[percent>=5]
+perc_data <- data.frame(percent=percent, PC=1:length(percent))
+ggplot(perc_data, aes(x=PC, y=percent)) + 
+  geom_bar(stat="identity") + 
+  geom_text(aes(label=round(percent, 2)), size=4, vjust=-.5) + 
+  ylim(0, 100)
+
+
+textplot(PCx_10list, cex = 1.65)
+title(paste("10 most highly contributing genes to ", PCxstring))
+textplot(PCy_10list, cex= 1.65)
+title(paste("10 most highly contributing genes to ", PCystring))
+
+
+arrow_style <- arrow(length = unit(0.05, "inches"),
+                     type = "closed")
+
+xsegment <- topTens[,1]
+ysegment <- topTens[,2]
+
+ggplot(topTens) + 
+  geom_segment(aes(xend=topTens[,1], yend=topTens[,2]), x=0, y=0, arrow=arrow_style)+
+  geom_text(aes(x=topTens[,1], y=topTens[,2], label=rownames(topTens)), hjust=0, size=3, color='red') +
+  xlab(PCxstring)+ ylab(PCystring)+
+  xlim(-0.05,0.05) + 
+  ylim(-0.05,0.05) +
+  coord_fixed()
+
+dev.off()
+
+#write ("The number of genes removed during filtering is: ", stderr() )
+
+```

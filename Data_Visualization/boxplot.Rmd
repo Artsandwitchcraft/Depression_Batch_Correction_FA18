@@ -1,0 +1,89 @@
+Import libraries
+
+```{r}
+
+library(ggplot2)
+
+```
+
+Define Important Variables
+
+```{r}
+input_counts = "C:\\Users\\Roman\\Documents\\Work\\Depression_and_Immunology\\Data\\genecounts.variancestabilized.csv"
+input_annot = "C:\\Users\\Roman\\Documents\\Work\\Depression_and_Immunology\\Scripts\\Data\\meta_data_with_paths_all_patients_final.csv"
+```
+Import file list that contains the location of all the files
+Also import a file with the samples and the sample names
+```{r}
+# let's get the file
+
+# Read a txt file and convert gene names (first column) into indeces
+my_data <- read.csv(input_counts, header = TRUE, row.names = 1, check.names = FALSE)
+
+# Transpose data table
+gene_df <- t(my_data)
+# Convert transposed table into a data frame
+gene_df <- data.frame(gene_df)
+
+# remove stuff we don't want
+gene_df <- gene_df[rownames(annot),]
+gene_df <- gene_df[,sapply(gene_df,function(x){!all(x==0)})]
+gene_df <- gene_df[vapply(express_df, function(x) length(unique(x)) > 1, logical(1L))]
+
+gene_df <- gene_df[complete.cases(gene_df), ] # remove rows with NaN, I think there is 1 like that
+
+# Remove all non-expressed and 0-variance genes from data frame
+#express_df <- gene_df[,sapply(gene_df,function(x){!all(x==0)})]
+#express_final_df <- express_df[vapply(express_df, function(x) length(unique(x)) > 1, logical(1L))]
+
+# every box is just one sample 
+# 
+```
+
+```{r}
+
+# Read a text file and create indeces
+annot <- read.csv(input_annot, header = TRUE, row.names = 1, check.names = FALSE )
+annot <- annot[which(annot$missing == FALSE),]
+
+```
+
+```{r}
+
+# create our data matrix
+dataMatrix = as.data.frame(c())
+
+addCorrectionMethod <- function(gene_data, annot_data, method)
+{
+    # iterate through the batches
+    for( i in 1:3)
+    {
+        # get the samples we want for the specific batch
+        specificRows = rownames(annot_data[which(annot_data$batch == i),])
+        # now get the expression values for those samples
+        batchValues = as.data.frame(stack(gene_data[specificRows,])['values'])
+        # set the batch column
+        batchValues['batch'] = i
+        # set the correction method
+        batchValues['Correction Method'] = method
+        # add it to the data matrix
+        dataMatrix = rbind(dataMatrix, batchValues)
+    }
+    return(dataMatrix)
+}
+
+dataMatrix <- addCorrectionMethod(gene_df, annot, "No Correction")
+dataMatrix <- addCorrectionMethod(gene_df, annot, "Z-Score Correction")
+dataMatrix
+
+```
+
+```{r}
+correctionMethods = c("1. No Correction", "2. SVA", "3. ComBat", "4. Z-Score Correction", "5. PCA High Loading Genes") # I think this is still correction method
+
+
+# grouped boxplot
+ggplot(dataMatrix, aes(x=dataMatrix[,"Correction Method"], y=dataMatrix[,'values'], fill=dataMatrix[,'batch'])) + 
+geom_boxplot()
+```
+
